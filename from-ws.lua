@@ -1,5 +1,6 @@
 -- basic music tracker
 -- this expects the range to be 63-101
+-- only works on Pipe Organ v3
 
 local integrators = {}
 
