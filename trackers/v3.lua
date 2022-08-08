@@ -25,6 +25,12 @@ for k, v in pairs({
   H = 12,
 }) do lookup[k] = v; lookup[v] = k end
 
+local sides = {
+  [0] = "back",
+  "right",
+  "front"
+}
+
 local empty = {}
 local state = {}
 local function apply(notelist)
@@ -39,7 +45,7 @@ local function apply(notelist)
         state[octave][note] = not not notes[note]
         co[#co+1] = function()
           local index = note + (octave * 13) + 63
-          integrators[index].setOutput("back", not not notes[note])
+          integrators[index].setOutput(sides[octave], not not notes[note])
         end
       end
     end

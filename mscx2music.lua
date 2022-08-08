@@ -8,6 +8,8 @@ local file = arg[1] and assert(io.open(arg[1], "r")) or io.stdin
 local data = file:read("a")
 file:close()
 
+-- get around some slight weirdness
+data = data:gsub("<(acciaccatura)/>", "<%1></%1>")
 local d = xml.parse(data)
 
 -- find museScore.Score.Staff id="1" and id="2"
@@ -21,14 +23,12 @@ local function find(elem, path, attrs)
       local match = true
       if #path == 0 and attrs then
         for k, v in pairs(attrs) do
-          for _, attr in ipairs(elem.children[i].attrs) do
-            if k == attr.name and v ~= attr.value then
-              match = false
-            end
+          if elem.children[i].attrs[k] ~= v then
+            match = false
           end
         end
       end
-      if match then return find(elem.children[i], path) end
+      if match then return find(elem.children[i], path, attrs) end
     end
   end
 end
@@ -55,10 +55,10 @@ if #m1 ~= #m2 then
 end
 
 local durationMap = {
-  measure = 1.2,
-  half = 0.6,
-  quarter = 0.3,
-  eighth = 0.15
+  measure = 1.6,
+  half = 0.8,
+  quarter = 0.4,
+  eighth = 0.2
 }
 
 local graceMap = {
@@ -133,7 +133,7 @@ local function getRawNoteSequence(...)
             local durType = find(voice[c], {"durationType"}).children[1].text
             local duration
 
-            if find(voice[c], {"acciaccatura/"}) then
+            if find(voice[c], {"acciaccatura"}) then
               duration = graceMap[durType]
               if not duration then
                 error("unknown acciaccatura type - " .. durType, 0)
@@ -200,7 +200,7 @@ local function getNoteSequence(...)
     return ret
   end
 
-  while #raw[1] > 0 do
+  while #raw[1] > 0 and #raw[2] > 0 do
     -- find shortest chord within any voice
     local shortest = math.huge
     for v=1, #raw, 1 do
@@ -232,7 +232,9 @@ for mid=1, #m1, 1 do
   local chords = getNoteSequence(measure1, measure2)
 
   for i=1, #chords, 1 do
-    print(table.unpack(chords[i]))
+    local duration = math.ceil(chords[i][1] * 20) / 20
+    print(string.format("%.2f %s", duration,
+      table.concat(chords[i], " ", 2)))
   end
 
 end
