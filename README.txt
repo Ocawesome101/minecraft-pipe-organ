@@ -12,6 +12,9 @@ midi2music.lua: Reads MIDI input using midialsa
                 pipe that over a websocket to an
                 instance of from-ws.lua to play in
                 almost-real-time.
+mscx2music.lua: Converts MuseScore 3 scores into
+                the trackers' music format. Should
+                be *mostly* bug-free.
 e:      A little bit of Rush E.
 ge:     Entry of the Gladiators (Julius Fucik).
 im:     Half of Star Wars' Imperial March.
