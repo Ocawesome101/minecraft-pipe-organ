@@ -112,6 +112,8 @@ for line in io.lines(arg[1]) do
   sequence[#sequence+1] = notes
 end
 
+stop()
+
 for i=1, #sequence do
   local s = sequence[i]
   apply(s)

@@ -1,0 +1,3 @@
+{
+  [ "bios.use_multishell" ] = false,
+}

@@ -4,6 +4,17 @@
 
 local xml = require("xmllpegparser")
 
+if arg[1] == "--help" then
+  io.stderr:write([[
+usage: mscx2music [/path/to/mscx] [baseTime]
+
+baseTime is the time in seconds that one 16th note should take.
+Does not support anything shorter than 16th notes.  Acciaccatura
+are always 0.05s (1 tick).
+]])
+  os.exit(1)
+end
+
 local file = arg[1] and assert(io.open(arg[1], "r")) or io.stdin
 local data = file:read("a")
 file:close()
@@ -54,7 +65,7 @@ if #m1 ~= #m2 then
   error("mismatched measure counts - this doesn't make sense", 0)
 end
 
-local base = 0.15
+local base = tonumber(arg[2]) or 0.10
 
 local durationMap = {
   measure =     base*16,
