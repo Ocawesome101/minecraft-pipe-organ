@@ -54,11 +54,16 @@ if #m1 ~= #m2 then
   error("mismatched measure counts - this doesn't make sense", 0)
 end
 
+local base = 0.15
+
 local durationMap = {
-  measure = 1.6,
-  half = 0.8,
-  quarter = 0.4,
-  eighth = 0.2
+  measure =     base*16,
+  whole =       base*16,
+  half =        base*8,
+  quarter =     base*4,
+  eighth =      base*2,
+  ["16th"] =    base,
+--  ["32nd"] =    base
 }
 
 local graceMap = {
@@ -155,14 +160,16 @@ local function getRawNoteSequence(...)
             for _, child in ipairs(voice[c].children) do
               if child.tag == "Note" then
                 local pitch = tonumber(find(child, {"pitch"}).children[1].text)
+                pitch = pitchToNote(pitch)
                 -- make repeated notes work
                 if #voiceData > 0 and inChord(voiceData[#voiceData], pitch)
                     and not didOffset then
                   didOffset = true
+                  voiceData[#voiceData][1] = voiceData[#voiceData][1] - 0.05
                   voiceData[#voiceData+1] = { 0.05 }
-                  chord[1] = chord[1] - 0.05
+                  chord[1] = chord[1]
                 end
-                chord[#chord+1] = pitchToNote(pitch)
+                chord[#chord+1] = pitch
               end
             end
 
