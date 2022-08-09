@@ -117,3 +117,5 @@ for i=1, #sequence do
   apply(s)
   os.sleep(s[3])
 end
+
+stop()
