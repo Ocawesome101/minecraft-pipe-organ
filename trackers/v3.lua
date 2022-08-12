@@ -158,7 +158,7 @@ while true do
       os.sleep(0)
       for i=1, #music, 1 do
         cur = i
-        --draw()
+        draw()
         local dur = tonumber(music[i][1]) or 1
         local notes = {}
         for n=2, #music[i] do
@@ -166,7 +166,7 @@ while true do
           oct = tonumber(oct)
           notes[oct] = notes[oct] or {}
           notes[oct][lookup[name] or -1] = true
-        --  drawNote(lookup[name] or -1, oct)
+          drawNote(lookup[name] or -1, oct)
         end
         apply(notes)
         os.sleep(dur)

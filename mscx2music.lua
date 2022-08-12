@@ -180,7 +180,9 @@ local function getRawNoteSequence(...)
                   voiceData[#voiceData+1] = { 0.05 }
                   chord[1] = chord[1]
                 end
-                chord[#chord+1] = pitch
+                if not inChord(chord, pitch) then
+                  chord[#chord+1] = pitch
+                end
               end
             end
 
