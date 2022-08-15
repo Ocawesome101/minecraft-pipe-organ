@@ -161,6 +161,9 @@ local function getRawNoteSequence(...)
               if not duration then
                 error("unknown duration type - " .. durType, 0)
               end
+              if find(voice[c], {"dots"}) then
+                duration = duration * 1.5
+              end
               duration = duration - nextRealDurationOffset
               nextRealDurationOffset = 0
             end
@@ -173,12 +176,29 @@ local function getRawNoteSequence(...)
                 local pitch = tonumber(find(child, {"pitch"}).children[1].text)
                 pitch = pitchToNote(pitch)
                 -- make repeated notes work
-                if #voiceData > 0 and inChord(voiceData[#voiceData], pitch)
-                    and not didOffset then
-                  didOffset = true
-                  voiceData[#voiceData][1] = voiceData[#voiceData][1] - 0.05
-                  voiceData[#voiceData+1] = { 0.05 }
-                  chord[1] = chord[1]
+                if #voiceData > 0 and inChord(voiceData[#voiceData], pitch) then
+                  if not didOffset then
+                    didOffset = true
+                    voiceData[#voiceData][1] = voiceData[#voiceData][1] - 0.05
+
+                    local new = { 0.05 }
+                    for i=2, #voiceData[#voiceData] do
+                      local note = voiceData[#voiceData][i]
+                      if note ~= pitch then
+                        new[#new+1] = note
+                      end
+                    end
+
+                    voiceData[#voiceData+1] = new
+                    chord[1] = chord[1] - 0.05
+                  else
+                    local _data = voiceData[#voiceData]
+                    for j=#_data, 2, -1 do
+                      if _data[j] == pitch then
+                        table.remove(_data, j)
+                      end
+                    end
+                  end
                 end
                 if not inChord(chord, pitch) then
                   chord[#chord+1] = pitch
@@ -205,6 +225,7 @@ local function getNoteSequence(...)
   local raw = getRawNoteSequence(...)
 
   local function readLength(voice, length)
+    local _l = length
     local ret = {}
     while length > 0 and #raw[voice] > 0 do
       local chord = raw[voice][1]
@@ -217,6 +238,8 @@ local function getNoteSequence(...)
         ret[#ret+1] = { sub, table.unpack(chord, 2) }
       end
     end
+
+    io.stderr:write(("%f; %d\n"):format(_l, #ret))
     return ret
   end
 
@@ -249,7 +272,9 @@ for mid=1, #m1, 1 do
 
   local measure1, measure2 = m1[mid].children, m2[mid].children
 
+  io.stderr:write(("BEGIN MEASURE %d\n"):format(mid))
   local chords = getNoteSequence(measure1, measure2)
+  io.stderr:write(("have %d chords\n"):format(#chords))
 
   for i=1, #chords, 1 do
     local duration = math.ceil(chords[i][1] * 20) / 20

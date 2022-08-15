@@ -58,7 +58,7 @@ end
 
 local state = {[0]={}, [1]={}, [2]={}}
 local empty = {}
-local function apply(notelist)
+local function tweak(notelist)
   local co = {}
 
   for octave = 0, 2 do
@@ -75,8 +75,12 @@ local function apply(notelist)
     end
   end
 
-  for i=1, #co, 1 do
-    coroutine.resume(co[i])
+  return co
+end
+
+local function apply(_state)
+  for i=1, #_state, 1 do
+    coroutine.resume(_state[i])
   end
 end
 
@@ -89,7 +93,7 @@ local function stop()
       O[n] = false
     end
   end
-  apply(notes)
+  apply(tweak(notes))
 end
 
 -- potential optimization: split and lookup notes before playing
@@ -114,9 +118,14 @@ end
 
 stop()
 
+local states = {}
 for i=1, #sequence do
   local s = sequence[i]
-  apply(s)
+  states[#states+1] = tweak(s)
+end
+
+for i=1, #states, 1 do
+  apply(states[i])
   os.sleep(s[3])
 end
 
