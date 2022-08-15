@@ -3,6 +3,7 @@ Pipe Organ.
 
 trackers/:      Contains trackers for all
                 versions of the organ.
+play.lua:       Micro-optimized music player.
 from-ws.lua:    Reads from a WebSocket on
                 127.0.0.1:25000.
 midi2music.lua: Reads MIDI input using midialsa
@@ -20,3 +21,5 @@ ge:     Entry of the Gladiators (Julius Fucik).
 im:     Half of Star Wars' Imperial March.
 mk:     In the Hall of the Mountain King (Grieg).
 riff:   A piece I wrote based on a meme riff.
+pirate: He's a Pirate by Hans Zimmer (arr. Klaus
+        Badelt)
