@@ -1,8 +1,9 @@
 This repository contains files for the Minecraft
 Pipe Organ.
 
-trackers/:      Contains trackers for all
+trackers/:      Contains trackers for several
                 versions of the organ.
+v4/:            All data related to version 4.
 play.lua:       Micro-optimized music player.
 from-ws.lua:    Reads from a WebSocket on
                 127.0.0.1:25000.

@@ -69,7 +69,7 @@ local function tweak(notelist)
         state[octave][note] = noteval
         co[#co+1] = coroutine.create(function()
           local index = note + (octave * 13)
-          integrators[index].setOutput(sides[octave], noteval)
+          integrators[index].setAnalogOutput(sides[octave], noteval and 1 or 0)
         end)
       end
     end
@@ -99,6 +99,8 @@ end
 -- potential optimization: split and lookup notes before playing
 local sequence = {}
 
+local totaltime = 0
+
 for line in io.lines(arg[1]) do
   local words = {}
   for word in line:gmatch("[^ ]+") do
@@ -114,19 +116,33 @@ for line in io.lines(arg[1]) do
   end
 
   sequence[#sequence+1] = notes
+  totaltime = totaltime + notes[3]
 end
 
 stop()
 
+local times = {}
 local states = {}
 for i=1, #sequence do
   local s = sequence[i]
   states[#states+1] = tweak(s)
+  times[#times+1] = sequence[i][3]
 end
 
+print("Duration: ", os.date("%H:%M:%S", totaltime - (19*3600)))
+local x, y = term.getCursorPos()
+local elapsed = 0
+local totalelapsed = 0
 for i=1, #states, 1 do
   apply(states[i])
-  os.sleep(s[3])
+  elapsed = elapsed + times[i]
+  if elapsed > 1 then
+    totalelapsed = totalelapsed + elapsed
+    elapsed = 0
+    term.setCursorPos(x, y)
+    print("Elapsed: ", os.date("%H:%M:%S", totalelapsed - (19*3600)))
+  end
+  os.sleep(times[i])
 end
 
 stop()

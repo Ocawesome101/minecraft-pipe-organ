@@ -68,13 +68,13 @@ end
 local base = tonumber(arg[2]) or 0.10
 
 local durationMap = {
-  measure =     base*16,
-  whole =       base*16,
-  half =        base*8,
-  quarter =     base*4,
-  eighth =      base*2,
-  ["16th"] =    base,
---  ["32nd"] =    base
+  measure =     base*32,
+  whole =       base*32,
+  half =        base*16,
+  quarter =     base*8,
+  eighth =      base*4,
+  ["16th"] =    base*2,
+  ["32nd"] =    base
 }
 
 local graceMap = {
@@ -162,7 +162,8 @@ local function getRawNoteSequence(...)
                 error("unknown duration type - " .. durType, 0)
               end
               if find(voice[c], {"dots"}) then
-                duration = duration * 1.5
+                duration = duration * 1.5^tonumber(
+                  find(voice[c], {"dots"}).children[1].text)
               end
               duration = duration - nextRealDurationOffset
               nextRealDurationOffset = 0
@@ -247,7 +248,7 @@ local function getNoteSequence(...)
     -- find shortest chord within any voice
     local shortest = math.huge
     for v=1, #raw, 1 do
-      shortest = math.min(raw[v][1][1], shortest)
+      shortest = math.min(raw[v][1] and raw[v][1][1] or math.huge, shortest)
     end
 
     local finalChord = { shortest }
