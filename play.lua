@@ -127,12 +127,12 @@ for line in io.lines(arg[1]) do
 end
 
 local function accurate_sleep(time)
-  local sleep_time = time - 0.05
-  local start = os.epoch("utc") / 1000
+  local sleep_time = math.max(0, time - 0.05)
+  local start = epoch("utc") / 1000
   sleep(sleep_time)
   repeat
-    local delta = (os.epoch("utc") / 1000) - start
-  until sleep_time + delta >= time
+    local delta = (epoch("utc") / 1000) - start
+  until delta >= time
 end
 
 stop()
