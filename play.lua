@@ -1,6 +1,13 @@
 -- more barebones music player
 -- might perform better
--- these defaults are for my local copy of v3 - they may differ for others
+
+-- my LSP likes to complain about undefined globals
+local term = rawget(_G, "term")
+local epoch = rawget(os, "epoch")
+local sleep = rawget(os, "sleep")
+local settings = rawget(_G, "settings")
+local pullEvent = rawget(os, "pullEvent")
+local peripheral = rawget(_G, "peripheral")
 
 settings.define("organ.first_integrator", {
   description = "The ID of the first Redstone Integrator of the organ.",
@@ -119,6 +126,15 @@ for line in io.lines(arg[1]) do
   totaltime = totaltime + notes[3]
 end
 
+local function accurate_sleep(time)
+  local sleep_time = time - 0.05
+  local start = os.epoch("utc") / 1000
+  sleep(sleep_time)
+  repeat
+    local delta = (os.epoch("utc") / 1000) - start
+  until sleep_time + delta >= time
+end
+
 stop()
 
 local times = {}
@@ -129,11 +145,25 @@ for i=1, #sequence do
   times[#times+1] = sequence[i][3]
 end
 
+if arg[2] == "-r" then
+  print("Waiting for a redstone signal...")
+  pullEvent("redstone")
+end
+
+term.clear()
+term.setCursorPos(1,1)
+print("Playing", arg[1])
 print("Duration: ", os.date("%H:%M:%S", totaltime - (19*3600)))
 local x, y = term.getCursorPos()
 local elapsed = 0
 local totalelapsed = 0
+
+local average = 0
+local min = math.huge
+local max = 0
+
 for i=1, #states, 1 do
+  local start = epoch("utc")
   apply(states[i])
   elapsed = elapsed + times[i]
   if elapsed > 1 then
@@ -142,7 +172,13 @@ for i=1, #states, 1 do
     term.setCursorPos(x, y)
     print("Elapsed: ", os.date("%H:%M:%S", totalelapsed - (19*3600)))
   end
-  os.sleep(times[i])
+  local delta = epoch("utc") - start
+  average = (average + delta) / (average == 0 and 1 or 2)
+  min = delta < min and delta or min
+  max = delta > max and delta or max
+  accurate_sleep(times[i])
 end
 
 stop()
+
+print(("Update time avg/min/max: %.2fms/%.2fms/%.2fms"):format(average,min,max))
