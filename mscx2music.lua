@@ -101,13 +101,11 @@ local MIN_NOTE = 42
 local MAX_NOTE = 78
 local WRAP_OCTAVE = 3
 
-local wrapped = 0
+local wrapped = {up = 0, down = 0}
 
 local function pitchToNote(p)
-  if p < MIN_NOTE or p > MAX_NOTE then wrapped = wrapped + 1 end
-
-  while p < MIN_NOTE do p = p + 12 end
-  while p > MAX_NOTE do p = p - 12 end
+  while p < MIN_NOTE do wrapped.up = wrapped.up + 1 p = p + 12 end
+  while p > MAX_NOTE do wrapped.down = wrapped.down + 1 p = p - 12 end
 
   local base_id = (p - MIN_NOTE) % 12
   local octave = (p - MIN_NOTE) // 12
@@ -117,7 +115,8 @@ local function pitchToNote(p)
   return noteLookup[base_id] .. octave
 end
 
-local function inChord(c, n)
+local function inChord(c, n, N)
+  if not c then return end
   for i=2, #c, 1 do
     if c[i] == n then
       return true
@@ -136,12 +135,15 @@ end
 --   }
 -- }
 -- where each [n] is a voice
+local previous = {}
 local function getRawNoteSequence(...)
   local ret = {}
 
+  local vid = 0
   for _, measure in ipairs(table.pack(...)) do
     for i=1, #measure, 1 do
       if measure[i].tag == "voice" then
+        vid = vid + 1
         local voice = measure[i].children
 
         local voiceData = {}
@@ -182,14 +184,23 @@ local function getRawNoteSequence(...)
                 local pitch = tonumber(find(child, {"pitch"}).children[1].text)
                 pitch = pitchToNote(pitch)
                 -- make repeated notes work
-                if #voiceData > 0 and inChord(voiceData[#voiceData], pitch) then
+                local prev = previous[vid] or {}
+
+                if inChord(prev[#prev], pitch, "PREV"..vid) or
+                    (#voiceData > 0 and inChord(voiceData[#voiceData],
+                      pitch)) then
+
                   if not didOffset then
                     didOffset = true
-                    voiceData[#voiceData][1] = voiceData[#voiceData][1] - 0.05
+
+                    local _prev = voiceData[#voiceData] or prev[#prev]
+                    _prev[1] = _prev[1] - 0.05
 
                     local new = { 0.05 }
-                    for i=2, #voiceData[#voiceData] do
-                      local note = voiceData[#voiceData][i]
+                    local tab = voiceData[#voiceData] or prev[#prev]
+                    for j=2, #tab do
+                      local note = tab[j]
+
                       if note ~= pitch then
                         new[#new+1] = note
                       end
@@ -197,8 +208,10 @@ local function getRawNoteSequence(...)
 
                     voiceData[#voiceData+1] = new
                     chord[1] = chord[1] - 0.05
+
                   else
-                    local _data = voiceData[#voiceData]
+                    local _data = voiceData[#voiceData] or prev[#prev]
+
                     for j=#_data, 2, -1 do
                       if _data[j] == pitch then
                         table.remove(_data, j)
@@ -206,6 +219,7 @@ local function getRawNoteSequence(...)
                     end
                   end
                 end
+
                 if not inChord(chord, pitch) then
                   chord[#chord+1] = pitch
                 end
@@ -216,29 +230,42 @@ local function getRawNoteSequence(...)
           end
         end
 
-        ret[#ret+1] = voiceData
+        ret[vid] = voiceData
       end
     end
   end
 
+  previous = ret
   return ret
+end
+
+local function copy(t)
+  local c = {}
+  for k,v in pairs(t) do
+    if type(v) == "table" then v = copy(v) end
+    c[k] = v
+  end
+  return c
 end
 
 -- merge voices, splitting longer notes accordingly
 local function getNoteSequence(...)
   local final = {}
 
-  local raw = getRawNoteSequence(...)
+  local raw = copy(getRawNoteSequence(...))
 
   local function readLength(voice, length)
     local _l = length
     local ret = {}
+
     while length > 0 and #raw[voice] > 0 do
       local chord = raw[voice][1]
       local sub = math.min(chord[1], length)
       length = length - sub
+
       if chord[1] <= sub then
         ret[#ret+1] = table.remove(raw[voice], 1)
+
       else
         chord[1] = chord[1] - sub
         ret[#ret+1] = { sub, table.unpack(chord, 2) }
@@ -252,6 +279,7 @@ local function getNoteSequence(...)
   while #raw[1] > 0 and #raw[2] > 0 do
     -- find shortest chord within any voice
     local shortest = math.huge
+
     for v=1, #raw, 1 do
       shortest = math.min(raw[v][1] and raw[v][1][1] or math.huge, shortest)
     end
@@ -290,4 +318,4 @@ for mid=1, #m1, 1 do
 
 end
 
-io.stderr:write("Wrapped " .. wrapped .. " notes.\n")
+io.stderr:write("Wrapped " .. wrapped.up .. " notes up and " .. wrapped.down .. " notes down (" .. (wrapped.up + wrapped.down) .. " total).\n")
