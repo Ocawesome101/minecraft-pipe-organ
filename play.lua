@@ -63,6 +63,7 @@ for i=0, 38, 1 do
   integrators[i] = peripheral.wrap("redstoneIntegrator_"..(base+i))
 end
 
+local played = 0
 local state = {[0]={}, [1]={}, [2]={}}
 local empty = {}
 local function tweak(notelist)
@@ -76,6 +77,7 @@ local function tweak(notelist)
         state[octave][note] = noteval
         co[#co+1] = coroutine.create(function()
           local index = note + (octave * 13)
+          played = played + 1
           integrators[index].setAnalogOutput(sides[octave], noteval and 1 or 0)
         end)
       end
@@ -108,6 +110,8 @@ local sequence = {}
 
 local totaltime = 0
 
+local name = "file " .. arg[1]
+
 for line in io.lines(arg[1]) do
   local words = {}
   for word in line:gmatch("[^ ]+") do
@@ -115,15 +119,20 @@ for line in io.lines(arg[1]) do
   end
   local notes = {[3] = words[1]}
 
-  for i=2, #words do
-    local name, oct = words[i]:match("([A-H]#?)(%d?)")
-    oct = tonumber(oct)
-    notes[oct] = notes[oct] or {}
-    notes[oct][lookup[name]] = true
-  end
+  if type(words[1]) ~= "number" then
+    name = '"'..line..'"'
+  else
 
-  sequence[#sequence+1] = notes
-  totaltime = totaltime + notes[3]
+    for i=2, #words do
+      local name, oct = words[i]:match("([A-H]#?)(%d?)")
+      oct = tonumber(oct)
+      notes[oct] = notes[oct] or {}
+      notes[oct][lookup[name]] = true
+    end
+
+    sequence[#sequence+1] = notes
+    totaltime = totaltime + notes[3]
+  end
 end
 
 local function accurate_sleep(time)
@@ -156,11 +165,11 @@ end
 
 term.clear()
 term.setCursorPos(1,1)
-print("Playing", arg[1])
+print("Playing " .. name)
 if arg[2] == "-stupid-fast" then
   printError("saw -stupid-fast option, not liable for damages")
 end
-print("Duration: ", os.date("%H:%M:%S", totaltime - (19*3600)))
+print("Total Duration: ", os.date("%H:%M:%S", totaltime - (19*3600)))
 local x, y = term.getCursorPos()
 local elapsed = 0
 local totalelapsed = 0
@@ -177,7 +186,8 @@ for i=1, #states, 1 do
     totalelapsed = totalelapsed + elapsed
     elapsed = 0
     term.setCursorPos(x, y)
-    print("Elapsed: ", os.date("%H:%M:%S", totalelapsed - (19*3600)))
+    print("Time Elapsed: ", os.date("%H:%M:%S", totalelapsed - (19*3600)))
+    print("Notes Played: ", played)
   end
   local delta = epoch("utc") - start
   average = (average + delta) / (average == 0 and 1 or 2)
