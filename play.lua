@@ -127,6 +127,10 @@ for line in io.lines(arg[1]) do
 end
 
 local function accurate_sleep(time)
+  if arg[2] == "-stupid-fast" then
+    return sleep(0)
+  end
+
   local sleep_time = math.max(0, time - 0.05)
   local start = epoch("utc") / 1000
   sleep(sleep_time)
@@ -153,6 +157,9 @@ end
 term.clear()
 term.setCursorPos(1,1)
 print("Playing", arg[1])
+if arg[2] == "-stupid-fast" then
+  printError("saw -stupid-fast option, not liable for damages")
+end
 print("Duration: ", os.date("%H:%M:%S", totaltime - (19*3600)))
 local x, y = term.getCursorPos()
 local elapsed = 0

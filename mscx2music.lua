@@ -99,15 +99,20 @@ local noteLookup = {
 
 local MIN_NOTE = 42
 local MAX_NOTE = 78
+local WRAP_OCTAVE = 3
+
+local wrapped = 0
 
 local function pitchToNote(p)
+  if p < MIN_NOTE or p > MAX_NOTE then wrapped = wrapped + 1 end
+
   while p < MIN_NOTE do p = p + 12 end
   while p > MAX_NOTE do p = p - 12 end
 
   local base_id = (p - MIN_NOTE) % 12
   local octave = (p - MIN_NOTE) // 12
 
-  if octave == 3 then base_id = 12 octave = 2 end
+  if octave == WRAP_OCTAVE then base_id = 12 octave = WRAP_OCTAVE - 1 end
 
   return noteLookup[base_id] .. octave
 end
@@ -284,3 +289,5 @@ for mid=1, #m1, 1 do
   end
 
 end
+
+io.stderr:write("Wrapped " .. wrapped .. " notes.\n")
