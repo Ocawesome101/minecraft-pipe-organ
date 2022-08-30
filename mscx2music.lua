@@ -207,7 +207,7 @@ local function getRawNoteSequence(...)
                     end
 
                     voiceData[#voiceData+1] = new
-                    chord[1] = chord[1] - 0.05
+                    chord[1] = chord[1] -- 0.05
 
                   else
                     local _data = voiceData[#voiceData] or prev[#prev]
