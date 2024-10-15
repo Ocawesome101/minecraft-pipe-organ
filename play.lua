@@ -1,201 +1,293 @@
--- more barebones music player
--- might perform better
+-- Play music on the New Pipe Organ
 
--- my LSP likes to complain about undefined globals
-local term = rawget(_G, "term")
-local epoch = rawget(os, "epoch")
-local sleep = rawget(os, "sleep")
-local settings = rawget(_G, "settings")
-local pullEvent = rawget(os, "pullEvent")
-local peripheral = rawget(_G, "peripheral")
+local midi = require("midi")
 
-settings.define("organ.first_integrator", {
-  description = "The ID of the first Redstone Integrator of the organ.",
-  default = 63,
-  type = "number"
-})
-
-settings.define("organ.side1", {
-  descripton = "The side of the first set of Redstone Integrators to which the organ's whistles are connected.",
-  default = "back",
-  type = "string"
-})
-
-settings.define("organ.side2", {
-  descripton = "The side of the second set of Redstone Integrators to which the organ's whistles are connected.",
-  default = "right",
-  type = "string"
-})
-
-settings.define("organ.side3", {
-  descripton = "The side of the third set of Redstone Integrators to which the organ's whistles are connected.",
-  default = "front",
-  type = "string"
-})
-
-local lookup = {}
-for k, v in pairs({
-  ["F#"] = 0,
-  G = 1,
-  ["G#"] = 2,
-  A = 3,
-  ["A#"] = 4,
-  B = 5,
-  C = 6,
-  ["C#"] = 7,
-  D = 8,
-  ["D#"] = 9,
-  E = 10,
-  F = 11,
-  H = 12,
-}) do lookup[k] = v; lookup[v] = k end
-
-local sides = {
-  [0] = settings.get("organ.side1"),
-  settings.get("organ.side2"),
-  settings.get("organ.side3"),
-}
-
-local integrators = {}
-
-local base = settings.get("organ.first_integrator")
-for i=0, 38, 1 do
-  integrators[i] = peripheral.wrap("redstoneIntegrator_"..(base+i))
+local names = peripheral.getNames()
+for i=#names, 1, -1 do
+  if not names[i]:match("redstoneIntegrator") then
+    table.remove(names, i)
+  end
 end
 
-local played = 0
-local state = {[0]={}, [1]={}, [2]={}}
-local empty = {}
-local function tweak(notelist)
-  local co = {}
+local wrappers = {}
 
-  for octave = 0, 2 do
-    local notes = notelist[octave] or empty
-    for note = 0, 12 do
-      local noteval = not not notes[note]
-      if (not not state[octave][note]) ~= (noteval) then
-        state[octave][note] = noteval
-        co[#co+1] = coroutine.create(function()
-          local index = note + (octave * 13)
-          played = played + 1
-          integrators[index].setAnalogOutput(sides[octave], noteval and 1 or 0)
-        end)
-      end
+table.sort(names, function(a, b)
+  return tonumber(a:match("_(%d+)")) < tonumber(b:match("_(%d+)"))
+end)
+
+local config
+do
+  local hand = io.open("/organ-config", "r")
+  if not hand then
+    error("Could not open /organ-config - have you run config.lua?", 0)
+  end
+  local dat = hand:read("a")
+  hand:close()
+  config = textutils.unserialize(dat)
+end
+
+
+for i=1, #names do
+  wrappers[i] = peripheral.wrap(names[i])
+  wrappers[i].setOutput(config.side, false)
+end
+
+local file = arg[1]
+if not file then
+  error("File argument required", 0)
+end
+
+local function printf(...)
+  print(string.format(...))
+end
+
+local tNum, tDen = 4, 4
+local tempo = 120
+local tempo_mod = 1
+local tpqn = 0
+
+local ranks = {}
+
+for octave=1, #config do
+  for rank=1, #config[octave] do
+    ranks[rank] = ranks[rank] or {}
+    ranks[rank][octave] = config[octave][rank]
+  end
+end
+
+local MIN_NOTE, MAX_NOTE = 43, 78
+
+local function getIDs(id)
+  local base_id = (id - MIN_NOTE) % 12
+  local octave = math.floor((id - MIN_NOTE) / 12) + 1
+  if octave > 3 then octave = 3 end
+  if octave < 1 then octave = 1 end
+
+  return base_id, octave
+end
+
+local function getUnusedPipe(id)
+  while id < MIN_NOTE do
+    id = id + 12
+  end
+  while id > MAX_NOTE do
+    id = id - 12
+  end
+
+  local base_id, octave = getIDs(id)
+
+  for rank=1, #ranks do
+    if type(ranks[rank][octave][base_id]) == "number" then
+      --if os.epoch("utc") - ranks[rank][octave][base_id] >= 50 then
+        ranks[rank][octave][base_id] = true
+        return rank, octave, base_id
+      --end
+    end
+    if not ranks[rank][octave][base_id] then
+      ranks[rank][octave][base_id] = true
+      return rank, octave, base_id
     end
   end
 
-  return co
-end
-
-local function apply(_state)
-  for i=1, #_state, 1 do
-    coroutine.resume(_state[i])
-  end
-end
-
-local function stop()
-  local notes = {}
-  for o=0, 2 do
-    local O = {}
-    notes[o] = O
-    for n=0, 12 do
-      O[n] = false
-    end
-  end
-  apply(tweak(notes))
-end
-
--- potential optimization: split and lookup notes before playing
-local sequence = {}
-
-local totaltime = 0
-
-local name = "file " .. arg[1]
-
-for line in io.lines(arg[1]) do
-  local words = {}
-  for word in line:gmatch("[^ ]+") do
-    words[#words+1] = tonumber(word) or word
-  end
-  local notes = {[3] = words[1]}
-
-  if type(words[1]) ~= "number" then
-    name = '"'..line..'"'
-  else
-
-    for i=2, #words do
-      local name, oct = words[i]:match("([A-H]#?)(%d?)")
-      oct = tonumber(oct)
-      notes[oct] = notes[oct] or {}
-      notes[oct][lookup[name]] = true
-    end
-
-    sequence[#sequence+1] = notes
-    totaltime = totaltime + notes[3]
-  end
+  printError("Ran out of pipes! Note ID: " .. id)
 end
 
 local function accurate_sleep(time)
-  if arg[2] == "-stupid-fast" then
-    return sleep(0)
-  end
-
   local sleep_time = math.max(0, time - 0.05)
-  local start = epoch("utc") / 1000
-  sleep(sleep_time)
+  local start = os.epoch("utc") / 1000
+  if sleep_time < 100000 then
+    sleep(sleep_time)
+  else
+    error("Uncharacteristically large sleep value: " .. tostring(sleep_time), 0)
+  end
   repeat
-    local delta = (epoch("utc") / 1000) - start
+    local delta = (os.epoch("utc") / 1000) - start
   until delta >= time
 end
 
-stop()
-
-local times = {}
-local states = {}
-for i=1, #sequence do
-  local s = sequence[i]
-  states[#states+1] = tweak(s)
-  times[#times+1] = sequence[i][3]
-end
-
-if arg[2] == "-r" then
-  print("Waiting for a redstone signal...")
-  pullEvent("redstone")
-end
-
-term.clear()
-term.setCursorPos(1,1)
-print("Playing " .. name)
-if arg[2] == "-stupid-fast" then
-  printError("saw -stupid-fast option, not liable for damages")
-end
-print("Total Duration: ", os.date("%H:%M:%S", totaltime - (19*3600)))
-local x, y = term.getCursorPos()
-local elapsed = 0
-local totalelapsed = 0
-
-local average = 0
-local min = math.huge
-local max = 0
-
-for i=1, #states, 1 do
-  local start = epoch("utc")
-  apply(states[i])
-  elapsed = elapsed + times[i]
-  if elapsed > 1 then
-    totalelapsed = totalelapsed + elapsed
-    elapsed = 0
-    term.setCursorPos(x, y)
-    print("Time Elapsed: ", os.date("%H:%M:%S", totalelapsed - (19*3600)))
-    print("Notes Played: ", played)
+local queue = {}
+local function noteOn(id, vel)
+  local base_id, octave = getIDs(id)
+  for i=1, #queue do
+    local r, o, n, s = queue[i]
+    if s == "on" and o == octave and n == base_id then
+      print"ignore duplicate"
+      return
+    end
   end
-  local delta = epoch("utc") - start
-  average = (average + delta) / (average == 0 and 1 or 2)
-  min = delta < min and delta or min
-  max = delta > max and delta or max
-  accurate_sleep(times[i])
+  for i=1, math.floor(vel*2+0.5) do
+    local rank, octave, note = getUnusedPipe(id)
+    if not rank then return end
+    queue[#queue+1] = {rank, octave, note, "on"}
+  end
 end
 
-stop()
+local function noteOff(id)
+  local base_id, octave = getIDs(id)
 
-print(("Update time avg/min/max: %.2fms/%.2fms/%.2fms"):format(average,min,max))
+  for rank=1, #ranks do
+    if ranks[rank][octave][base_id] == true then
+      queue[#queue+1] = {rank, octave, base_id, "off"}
+    end
+  end
+end
+
+local function flushQueue()
+  local parallels = {}
+  for i=1, #queue do
+    local func
+    local rank, octave, id, state = table.unpack(queue[i])
+    local integrator =
+        ranks[rank][octave].start + ranks[rank][octave].direction * id
+    if state == "off" then
+      func = function()
+        --print("note off", octave, id)
+        if type(ranks[rank][octave][id]) ~= "number" then
+          wrappers[integrator].setOutput(config.side, false)
+          ranks[rank][octave][id] = os.epoch("utc")
+        end
+      end
+    elseif state == "on" then
+      func = function()
+        --print("note on", octave, id)
+        wrappers[integrator].setOutput(config.side, true)
+      end
+    end
+    parallels[#parallels+1] = func
+  end
+  queue = {}
+  parallel.waitForAll(table.unpack(parallels))
+end
+
+local function playbackCallback(...)
+  local evt = table.pack(...)
+  if evt[1] == "header" then
+    printf("Playing SMF format %d. %d tracks, %d ticks per quarter-note.", evt[2], evt[3], evt[4])
+    tpqn = evt[4]
+  elseif evt[1] == "track" then
+    printf("Begin track %d.", evt[2])
+  elseif evt[1] == "timeSignature" then
+    tNum, tDen = evt[2], evt[3]
+    print("Time: " .. tNum.."/"..tDen)
+  elseif evt[1] == "setTempo" then
+    tempo = evt[2] * tempo_mod
+    print("Tempo: " .. evt[2].."bpm (multiplied: "..tempo..")")
+  elseif evt[1] == "deltatime" then
+    if evt[2] > 0 then
+      flushQueue()
+      
+      -- 60/tempo = seconds per beat
+      -- tDen = this note is 1 beat
+      -- tpqn = ticks per quarter-note
+      -- 4/tDen * tpqn = ticks per beat
+      -- 60/tempo * 4/tDen * tpqn = time to sleep per quarter-note
+      -- 60/tempo * 4/tDen * ticks/tpqn = time to sleep for N ticks
+      accurate_sleep(60/tempo * 4/tDen * evt[2]/tpqn)
+    end
+  elseif evt[1] == "noteOn" then
+    if evt[4] == 0 then
+      noteOff(evt[3])
+    else
+      noteOn(evt[3], evt[4])
+    end
+  elseif evt[1] == "noteOff" then
+    noteOff(evt[2])
+  end
+end
+
+local hand = assert(io.open(file, "r"))
+local events = {}
+
+do
+  local intermediate = {[0]={}}
+  local pointers = {}
+
+  local tracked_events = {
+    noteOn = true, noteOff = true, deltatime = true, setTempo = true,
+    timeSignature = true
+  }
+
+  midi.process(hand, function(...)
+    local evt = table.pack(...)
+    if evt[1] == "track" then
+      printf("Process track %d.", evt[2])
+      intermediate[evt[2]] = {}
+      pointers[evt[2]] = 1
+    elseif tracked_events[evt[1]] then
+      intermediate[#intermediate][#intermediate[#intermediate]+1] = evt
+    else -- time signature events, etc
+      -- this behavior is not quite correct
+      events[#events+1] = evt
+    end
+  end)
+
+  -- get beginning noteOn events
+  local function popTrack(n)
+    pointers[n] = pointers[n]+1
+    return intermediate[n][pointers[n]-1]
+  end
+
+  local current = {}
+  for i=1, #intermediate do
+    current[i] = popTrack(i)
+  end
+
+  local c = 0
+  local function isPresent()
+    for i=1, #pointers do if current[i] then return true end end
+  end
+
+  while isPresent() do
+    local shortest, shortestTime = 0, math.huge
+
+    for i=1, #pointers do
+      while current[i] and (current[i][1] ~= "deltatime" or current[i][2] == 0) do
+        events[#events+1] = current[i]
+        --print(i, ":", table.unpack(current[i]))
+        current[i] = popTrack(i)
+      end
+
+      if not current[i] then current[i] = false end
+    end
+
+    for i=1, #current do
+      if current[i] then
+        --print(table.unpack(current[i]))
+        if current[i][2] < shortestTime then
+          shortest, shortestTime = i, current[i][2]
+        end
+      end
+    end
+
+    if shortest > 0 then events[#events+1] = {"deltatime", shortestTime} end
+    local shortestDifference = math.huge
+
+    for i=1, #current do
+      if current[i] then
+        current[i][2] = current[i][2] - shortestTime
+      end
+    end
+  end
+end
+
+hand:close()
+
+print(#events, "events")
+
+for i=1, #arg do
+  if arg[i] == "-half" then
+    tempo_mod = tempo_mod / 2
+  elseif arg[i] == "-double" then
+    tempo_mod = tempo_mod * 2
+  elseif arg[i] == "-three" then
+    tempo_mod = tempo_mod * 0.75
+  end
+end
+
+for i=1, #events do
+  playbackCallback(table.unpack(events[i]))
+end
+
+for i=1, #wrappers do
+  wrappers[i].setOutput(config.side, false)
+end
