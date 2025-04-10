@@ -6,7 +6,7 @@ Everything in `old/` is the stuff used in videos.  I've since rewritten everythi
 
 Everything in `new-old/` is the second iteration of organ controllers.  It plays MIDI and supports arbitrary configurations of octaves.
 
-The root folder of this repository contains the newest controller.  It is a real multitrack MIDI player, with support for individual voices (currently as 'stops' that the user must toggle, but with planned support for standard General MIDI program numbers).  It also requires no configuration once the organ has been built.
+The root folder of this repository contains the newest controller.  It is a real multitrack MIDI player.  The biggest practical effect of this is that tempo changes now work exactly as they should.  The player supports individual voices (currently as 'stops' that the user must toggle, but with planned support for standard General MIDI program numbers).  It also requires no configuration once the organ has been built.
 
 ## Setup
 
