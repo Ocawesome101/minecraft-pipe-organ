@@ -1,1 +1,4 @@
 .settings
+*.mid
+organ-config
+mid/*
