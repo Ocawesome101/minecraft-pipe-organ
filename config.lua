@@ -68,13 +68,13 @@ for i=1, #wrappers/12 do
 
   local octave
   repeat
-    print("Which octave? [1 = lowest, 2 = middle, 3 = highest, a = play Again] ")
+    print("Which octave? [1-5, a = play Again] ")
     local command = read()
     if command == "a" then
       playScale(riindex)
     end
     octave = tonumber(command)
-  until octave and octave > 0 and octave < 4
+  until octave and octave > 0 and octave < 6
 
   conf[octave] = conf[octave] or {}
 
