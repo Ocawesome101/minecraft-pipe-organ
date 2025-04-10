@@ -55,12 +55,13 @@ for octave=1, #config do
   end
 end
 
-local MIN_NOTE, MAX_NOTE = 43, 78
+local MIN_NOTE, MAX_NOTE = 43-12, 78+12
+local MAX_OCTAVE = 5
 
 local function getIDs(id)
   local base_id = (id - MIN_NOTE) % 12
   local octave = math.floor((id - MIN_NOTE) / 12) + 1
-  if octave > 3 then octave = 3 end
+  if octave > MAX_OCTAVE then octave = MAX_OCTAVE end
   if octave < 1 then octave = 1 end
 
   return base_id, octave
@@ -115,7 +116,7 @@ local function noteOn(id, vel)
       return
     end
   end
-  for i=1, math.floor(vel*2+0.5) do
+  for i=1, math.floor(1.5) do
     local rank, octave, note = getUnusedPipe(id)
     if not rank then return end
     queue[#queue+1] = {rank, octave, note, "on"}
