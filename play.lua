@@ -78,7 +78,6 @@ do
       if side then
         local octave = wrappers[i+INT_OCTAVE].getAnalogInput(side) - 2
         local voice = wrappers[i+INT_VOICE].getAnalogInput(side)
-        if voice == 0 then print(voice, octave, getNoteID(octave, 0)) end
 
         min_octave = math.min(min_octave, octave)
         max_octave = math.max(max_octave, octave+1)
@@ -166,6 +165,12 @@ local tempo_mod = 1
 local tpqn = 0
 
 local enabled = {}
+do
+  local voiceCount = 0
+  local voiceId = 0
+  for voice in pairs(pipes) do voiceCount = voiceCount + 1; voiceId = voice end
+  if voiceCount == 1 then enabled[voiceId] = true end
+end
 
 -- read MIDI file
 do
@@ -379,11 +384,14 @@ local function play()
   end
 end
 
+if not voiceEnabled() then pause() end
+
 parallel.waitForAny(function()
   while true do
-    while not (voiceEnabled() and not paused) do
+    while paused do
       os.sleep(0)
     end
+    if not voiceEnabled() then pause() end
     if not playNextEvent() then break end
   end
 end, function()
