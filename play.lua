@@ -165,7 +165,7 @@ local tempo = 120
 local tempo_mod = 1
 local tpqn = 0
 
-local enabled = {[7]=true, [2]=true, [8]=true}
+local enabled = {}
 
 -- read MIDI file
 do
